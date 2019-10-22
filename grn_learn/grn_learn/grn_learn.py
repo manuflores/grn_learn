@@ -567,3 +567,45 @@ def get_network_clusters(network_lcc, n_clusters):
     return cluster_list
 
 
+def train_keras_multilabel_nn(n_units=64, epochs=20, n_deep_layers=1, batch_size=128): 
+    
+    '''
+    Trains a Keras model. 
+    
+    Assumes there are a X_train, y_train, x_val, y_val datasets.
+    
+    Returns history dataframe. 
+    
+    '''
+    nn = Sequential()
+    
+    #initial layer
+    nn.add(Dense(n_units, activation='relu', input_shape=(X_train.shape[1],)))
+    
+    #extra deep layers
+    for i in range(n_deep_layers):
+        nn.add(Dense(n_units, activation='relu'),
+               kernel_regularizer=l2(0.001))
+        nn.add(Dropout(0.25))
+        
+    #add final output layer
+    nn.add(Dense(y_train.shape[1], activation='softmax'))
+    nn.compile(optimizer='rmsprop',
+              loss='binary_crossentropy', 
+              metrics=['accuracy'])
+    
+    #print neural net architecture
+    nn.summary()
+    
+    #fit and load history
+    history = nn.fit(partial_x_train, partial_y_train, epochs=epochs,
+                    batch_size= batch_size, validation_data=(x_val, y_val),
+                    verbose = 0)
+    
+    history_df = pd.DataFrame(history.history)
+    
+    return nn, history_df
+
+# -
+
+
