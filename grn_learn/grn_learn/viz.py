@@ -7,8 +7,8 @@ def set_plotting_style():
       
     tw = 1.5
     rc = {'lines.linewidth': 2,
-            'axes.labelsize': 18,
-            'axes.titlesize': 21,
+            'axes.labelsize': 24,
+            'axes.titlesize': 26,
             'xtick.major' : 16,
             'ytick.major' : 16,
             'xtick.major.width': tw,
@@ -25,7 +25,7 @@ def set_plotting_style():
             'mathtext.fontset': 'stixsans',
             'mathtext.sf': 'fantasy',
             'legend.frameon': True,
-            'legend.fontsize': 12, 
+            'legend.fontsize': 14, 
            "xtick.direction": "in","ytick.direction": "in"}
     
     #plt.rc('text.latex', preamble=r'\usepackage{sfmath}')
@@ -51,7 +51,8 @@ def bokeh_style():
             },
             'Text': {
                 'text_font_style': 'normal',
-               'text_font': 'Helvetica'
+                'text_font': 'Helvetica',
+                'text_font_size': 18
             },
             'Title': {
                 #'background_fill_color': '#FFEDC0',
