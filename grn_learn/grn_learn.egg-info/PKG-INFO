@@ -1,0 +1,16 @@
+Metadata-Version: 2.1
+Name: grn-learn
+Version: 0.0.1
+Summary: Utilities for machine learning on gene regulatory networks in bacteria.
+Home-page: UNKNOWN
+Author: Emanuel Flores B.
+Author-email: efflores@caltech.edu
+License: UNKNOWN
+Description: ### GRN Learn package
+        
+        Utilities package to learn from gene regulatory associations of orphan transcription factors in bacteria. 
+        
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3
+Classifier: Operating System :: OS Independent
+Description-Content-Type: ext/markdown
