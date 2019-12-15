@@ -1,3 +1,6 @@
+# -*- coding: utf-8 -*-
+# + {}
+import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import networkx as nx
@@ -6,282 +9,67 @@ import numba
 import squarify
 import numpy as np
 from math import pi
-from matplotlib import rcParams
 from sklearn.decomposition import PCA
 from sklearn.mixture import GaussianMixture as GMM
 from umap import UMAP
 from sklearn.cluster import KMeans
 from scipy.spatial.distance import cdist
-from sklearn.preprocessing import StandardScaler as st
-import pandas as pd
-import community
+from sklearn.preprocessing import StandardScaler
+from sklearn.impute import SimpleImputer
+from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import LabelEncoder
 from sklearn.preprocessing import OneHotEncoder
 from datetime import date
 from warnings import filterwarnings
+import os
+import community
+
+import keras
+from keras.models import Sequential
+from keras.layers import Dense
+from keras import regularizers
+from keras.utils import np_utils
+from keras.metrics import categorical_accuracy
+from keras.layers import Dropout
+import keras.backend as K
+
 filterwarnings('ignore')
 
 
 # +
-def get_date_today():
+def get_gene_data(data, gene_name_column, test_gene_list):
     
-    """
-    Get today's date in yymmdd format. 
-    """
+    """Extract data from specific genes given a larger dataframe.
     
-    today = date.today()
-    today = str(today)
-
-    year = today.split('-')[0][2:4]
-    month = today.split('-')[1]
-    day = today.split('-')[2]
-
-    date_today = year + month + day
+    Inputs
     
-    return date_today
-
-def read(fname):
-    """
-    Simple helper function to load data. 
-    """
-    path_to_data = '../data/'
-    df = pd.read_csv(path_to_data +fname, delimiter = ';', error_bad_lines = False, 
-                    encoding = 'UTF-8')
+    * data: large dataframe from where to filter
+    * gene_name_column: column to filter from
+    * test_gene_list : a list of genes you want to get
     
-    return df 
-
-def stringify_id(df, id_col):
-    """
-    Helper function to stringify ids. 
+    Output
+    * dataframe with the genes you want
     """
     
-    df[id_col] = [str(x) for x in df['id'].values]
+    gene_profiles = pd.DataFrame()
+
+    for gene in data[gene_name_column].values:
+
+        if gene in test_gene_list: 
+
+            df_ = data[(data[gene_name_column] == gene)]
+
+            gene_profiles = pd.concat([gene_profiles, df_])
     
-    return df[id_col]
-
-
-# -------   PLOTTING FUNCTIONS -------------------------
-
-rcParams['axes.titlepad'] = 20 
-
-def set_plotting_style():
-      
-    """
-    Plotting style parameters, based on the RP group. 
-    """    
-        
-    tw = 1.5
-
-    rc = {'lines.linewidth': 2,
-        'axes.labelsize': 18,
-        'axes.titlesize': 21,
-        'xtick.major' : 16,
-        'ytick.major' : 16,
-        'xtick.major.width': tw,
-        'xtick.minor.width': tw,
-        'ytick.major.width': tw,
-        'ytick.minor.width': tw,
-        'xtick.labelsize': 'large',
-        'ytick.labelsize': 'large',
-        'font.family': 'sans',
-        'weight':'bold',
-        'grid.linestyle': ':',
-        'grid.linewidth': 1.5,
-        'grid.color': '#ffffff',
-        'mathtext.fontset': 'stixsans',
-        'mathtext.sf': 'fantasy',
-        'legend.frameon': True,
-        'legend.fontsize': 12, 
-       "xtick.direction": "in","ytick.direction": "in"}
-
-
-
-    plt.rc('text.latex', preamble=r'\usepackage{sfmath}')
-    plt.rc('mathtext', fontset='stixsans', sf='sans')
-    sns.set_style('ticks', rc=rc)
-
-    #sns.set_palette("colorblind", color_codes=True)
-    sns.set_context('notebook', rc=rc)
-
-
-
-def ecdf(x, plot = None, label = None):
-    '''
-	Compute and plot ECDF. 
-
-	----------------------
-	Inputs
-
-	x: array or list, distribution of a random variable
+    gene_profiles.drop_duplicates(inplace = True)
     
-    plot: bool, if True return the plot of the ECDF
-
-    label: string, label for the plot
-	
-	Outputs 
-
-	x_sorted : sorted x array
-	ecdf : array containing the ECDF of x
-
-
-    '''
-    x_sorted = np.sort(x)
-    
-    n = len (x)
-    
-
-    ecdf = np.linspace(0, 1, len(x_sorted))
-
-    if label is None and plot is True: 
-        
-        plt.scatter(x_sorted, ecdf, alpha = 0.7)
-
-    
-    elif label is not None and plot is True: 
-        
-        plt.scatter(x_sorted, ecdf, alpha = 0.7, label = label)
-        
-    return x_sorted, ecdf
-
-
-def make_treemap(x_keys, x_counts):
-    
-    '''
-    
-    Wrapper function to plot treemap using the squarify module. 
-    
-    -------------------------------------------
-    x_keys = names of the different categories 
-    x_counts = counts of the given categories
-    
-    '''
-    
-    norm = mpl.colors.Normalize(vmin=min(x_counts), vmax=max(x_counts))
-    colors = [mpl.cm.Greens(norm(value)) for value in x_counts]
-    
-    plt.figure(figsize=(14,8))
-    squarify.plot(label= x_keys, sizes= x_counts, color = colors, alpha=.6)
-    plt.axis('off');
-
-    
-
-
-def make_radar_chart(x_keys, x_counts):
-    
-    '''
-    Wrapper function to make radar chart.
-    
-    ------------------------------------------
-    
-    x_keys = names of the different categories 
-    x_counts = counts of the given categories    
-    
-    '''
-    
-    categories = list(x_keys)
-    N = len(categories)
-    
-    if N > 30: 
-        
-        print('The categories are too big to visualize in a treemap.')
-        
-    else:    
-
-        values = list(x_counts)
-        values.append(values[0])
-        values_sum = np.sum(values[:-1])
-
-        percentages= [(val/values_sum)*100 for val in values]
-
-        #angles
-        angles = [n / float(N) * 2 * pi for n in range(N)]
-        angles += angles[:1]
-
-        sns.set_style('whitegrid')
-
-        # Initialize figure
-        plt.figure(1, figsize=(7, 7))
-
-        # Initialise the polar plot
-        ax = plt.subplot(111, polar=True)
-
-        # Draw one ax per variable + add labels labels yet
-        plt.xticks(angles[:-1], categories, color='grey', size=12)
-
-        #Set first variable to the vertical axis 
-        ax.set_theta_offset(pi / 2)
-
-        #Set clockwise rotation
-        ax.set_theta_direction(-1)
-
-        #Set yticks to gray color 
-
-        ytick_1, ytick_2, ytick_3 = np.round(max(percentages)/3),np.round((max(percentages)/3)*2),np.round(max(percentages)/3)*3
-
-        plt.yticks([ytick_1, ytick_2, ytick_3], [ytick_1, ytick_2, ytick_3],
-                   color="grey", size=10)
-
-        plt.ylim(0, int(max(percentages)) + 4)
-
-
-        # Plot data
-        ax.plot(angles, percentages, linewidth=1,color = 'lightgreen')
-
-        # Fill area
-        ax.fill(angles, percentages, 'lightgreen', alpha=0.3);    
-
-
-
-
-def plot_distplot_feature(data, col_name):
-    
-    """
-    Get a histogram with the y axis in log-scale
-    """
-    
-    plt.hist(data[col_name].values, bins = int(data.shape[0]/10000),
-             color = 'dodgerblue')
-    
-    plt.yscale('log')
-    plt.xlabel(col_name)
-    plt.ylabel('frequency')
-
-
-def plot_boxplot_feature(data, col_name, hue_col_name):
-    
-    
-    """ 
-    
-    Get a boxplot with the variable in the x axis, in log scale. 
-    
-    You also need to provide a hue column name. 
-    
-    """
-    sns.boxplot(data = data, x = col_name, y = hue_col_name, palette = 'RdBu')
-    
-    plt.xscale('log')
-
-
-
-def palette(cmap = None):
-
-	palette = sns.cubehelix_palette(start = 0, rot=0, hue = 1, light = 0.9, dark = 0.15)
-	
-
-	if cmap == True:
-		palette = sns.cubehelix_palette(start = 0, rot=0, hue = 1, light = 0.9, dark = 0.15, as_cmap = True)
-
-	return palette 
-
+    return gene_profiles
 
 # ---------PANDAS FUNCTIONS FOR DATA EXPLORATION -------------------------
-
 def count_feature_types(data):
     
     """
-    
     Get the dtype counts for a dataframe's columns. 
-    
     """
     
     df_feature_type = data.dtypes.sort_values().to_frame('feature_type')\
@@ -319,9 +107,7 @@ def get_df_missing_columns(data):
 def find_constant_features(data):
     
     """
-    
     Get a list of the constant features in a dataframe. 
-    
     """
     const_features = []
     for column in list(data.columns):
@@ -390,18 +176,6 @@ def get_df_stats(df):
     dup_cols_list = duplicate_columns(df)
 
     return missing_cols_df, const_features_list, dup_cols_list
-
-
-
-def convert_to_datetime(df, col):
-	    
-    """
-    Convert a column to datetime format
-    """    
-    col = pd.to_datetime(col)
-    
-    return col
-
 
 
 def test_missing_data(df, fname):
@@ -493,13 +267,13 @@ def plot_kmeans(kmeans, X, n_clusters=4, rseed=0, ax=None):
     for c, r in zip(centers, radii):
         ax.add_patch(plt.Circle(c, r, fc='#CCCCCC', lw=3, alpha=0.5, zorder=1))
 
-
-
-
+        
 @numba.jit(nopython=True)
 def draw_bs_sample(data):
     """
     Draw a bootstrap sample from a 1D data set.
+    
+    Wrapper from J. Bois' BeBi103 course. 
     """
     return np.random.choice(data, size=len(data))
 
@@ -566,15 +340,471 @@ def get_network_clusters(network_lcc, n_clusters):
 
     return cluster_list
 
+def download_and_preprocess_data(org, data_dir = None, variance_ratio = 0.8, 
+                                output_path = '~/Downloads/'):
+    
+    """
+    General function to download and preprocess dataset from Colombos. 
+    Might have some issues for using with Windows. If you're using windows
+    I recommend using the urllib for downloading the dataset. 
+    
+    Params
+    -------
+    
+    
+    data_path (str): path to directory + filename. If none it will download the data
+                     from the internet. 
+                     
+    org (str) : Organism to work with. Available datasets are E. coli (ecoli), 
+                B.subtilis (bsubt), P. aeruginosa (paeru), M. tb (mtube), etc. 
+                Source: http://colombos.net/cws_data/compendium_data/
+                
+    variance (float): Fraction of the variance explained to make the PCA denoising. 
+    
+    Returns
+    --------
+    
+    denoised (pd.DataFrame)
+    
+    """
+    #Check if dataset is in directory
+    if data_dir is None:
+        
+        download_cmd = 'wget http://colombos.net/cws_data/compendium_data/'\
+                      + org + '_compendium_data.zip'
+        
+        unzip_cmd = 'unzip '+org +'_compendium_data.zip'
+        
+        os.system(download_cmd)
+        os.system(unzip_cmd)
+        
+        df = pd.read_csv('colombos_'+ org + '_exprdata_20151029.txt',
+                         sep = '\t', skiprows= np.arange(6))
+        
+        df.rename(columns = {'Gene name': 'gene name'}, inplace = True)
+        
+        df['gene name'] = df['gene name'].apply(lambda x: x.lower())
+        
+    else: 
+        
+        df = pd.read_csv(data_dir, sep = '\t', skiprows= np.arange(6))
+        try : 
+            df.rename(columns = {'Gene name': 'gene name'}, inplace = True)
+        except:
+            pass
+    annot = df.iloc[:, :3]
+    data = df.iloc[:, 3:]
 
-def train_keras_multilabel_nn(n_units=64, epochs=20, n_deep_layers=1, batch_size=128): 
+    preprocess = make_pipeline(SimpleImputer( strategy = 'median'),
+                               StandardScaler(), )
+
+    scaled_data = preprocess.fit_transform(data)
+    
+    # Initialize PCA object
+    pca = PCA(variance_ratio, random_state = 42).fit(scaled_data)
+    
+    # Project to PCA space
+    projected = pca.fit_transform(scaled_data)
+    
+    # Reconstruct the dataset using 80% of the variance of the data 
+    reconstructed = pca.inverse_transform(projected)
+
+    # Save into a dataframe
+    reconstructed_df = pd.DataFrame(reconstructed, columns = data.columns.to_list())
+
+    # Concatenate with annotation data
+    denoised_df = pd.concat([annot, reconstructed_df], axis = 1)
+    
+    denoised_df['gene name'] = denoised_df['gene name'].apply(lambda x: x.lower())
+
+    # Export dataset 
+    denoised_df.to_csv(output_path + 'denoised_' + org + '.csv', index = False)
+
+# def annot_data_trn(tf_tf_net_path = None,
+#                    trn_path = None,
+#                    denoised_data_path = None,
+#                    org = 'ecoli',
+#                    output_path = '~/Downloads/'):
+
+#     # Load TF-TF net and TRN
+    
+#     if tf_tf_net_path is None: 
+#         os.system('wget http://regulondb.ccg.unam.mx/menu/download/datasets/files/network_tf_tf.txt')
+
+
+#         tf_trn = pd.read_csv('network_tf_tf.txt',
+#                          delimiter= '\t',
+#                          comment= '#', 
+#                          names = ['TF', 'TG', 'regType', 'ev', 'confidence', 'unnamed'], 
+#                          usecols = np.arange(5))
+
+#     else: 
+#         tf_trn = pd.read_csv(tf_tf_net_path,
+#                          delimiter= '\t',
+#                          comment= '#', 
+#                          names = ['TF', 'TG', 'regType', 'ev', 'confidence', 'unnamed'], 
+#                          usecols = np.arange(5))
+
+#     if trn_path is None: 
+#         # by default download the E. coli trn
+#         os.system('wget http://regulondb.ccg.unam.mx/menu/download/datasets/files/network_tf_gene.txt')
+
+#         trn = pd.read_csv('network_tf_gene.txt',
+#                          delimiter= '\t',
+#                          comment= '#', 
+#                          names = ['TF', 'TG', 'regType', 'ev', 'confidence', 'unnamed'], 
+#                          usecols = np.arange(5))
+
+#     else: 
+#         try:
+#             trn =  pd.read_csv(trn_path)
+#         except:
+#             trn = pd.read_csv(trn_path,
+#                              delimiter= '\t',
+#                              comment= '#', 
+#                              names = ['TF', 'TG', 'regType', 'ev', 'confidence', 'unnamed'], 
+#                              usecols = np.arange(5))
+            
+#             #print('TRN probably has a different column annotation.')
+
+#     # Lowercase gene names for both datasets
+#     tf_trn.TF = tf_trn.TF.apply(lambda x: x.lower())
+#     tf_trn.TG = tf_trn.TG.apply(lambda x: x.lower())
+
+#     trn.TF = trn.TF.apply(lambda x: x.lower())
+#     trn.TG = trn.TG.apply(lambda x: x.lower())
+
+    
+
+#     # Turn the TF TRN dataframe into a graph object
+#     net = nx.from_pandas_edgelist(df= tf_trn, source= 'TF', target='TG')
+
+#     # Compute the LCC
+#     net= max(nx.connected_component_subgraphs(net), key=len)
+
+#     #Cluster TF net 
+
+#     communities = community.best_partition(net)
+
+#     # Get number of clusters
+#     n_clusters_tf = max(communities.values())
+
+#     # Embed cluster annotation in net 
+#     nx.set_node_attributes(net, values= communities, name='modularity')
+
+#     # Get np.array of TF clusters
+#     cluster_list = np.array(get_network_clusters(net, n_clusters_tf))
+
+#     # Get cluster sizes 
+
+#     cluster_sizes = np.array([len(clus) for clus in cluster_list])
+
+#     # Select only the clusters with more than 5 TFs
+
+#     clus_list = cluster_list[cluster_sizes > 5]
+
+
+#     # Get a DataFrame of the TGs in each cluster
+
+#     tgs_ = pd.DataFrame()
+
+#     for ix, clus in enumerate(clus_list):
+        
+#         clus_trn = get_gene_data(trn, 'TF', clus)
+#         clus_tgs = list(set(clus_trn['TG'].values))
+        
+#         tgs_df = pd.DataFrame({'TGs': clus_tgs})
+        
+#         tgs_df['cluster'] = ix + 1
+        
+#         tgs_ = pd.concat([tgs_, tgs_df])
+
+
+#     # -----Start constructing the annotated dataset ------
+
+#     if denoised_data_path is None: 
+#         try:
+#             denoised = pd.read_csv('denoised_coli.csv')
+#         except: 
+#             import download_and_preprocess_data as d
+
+#             d.download_and_preprocess_data(org)
+
+#     else: 
+#         denoised = pd.read_csv(denoised_data_path)
+
+
+#     # Get nrows of denoised data
+#     nrows_data = denoised.shape[0]
+
+
+#     # Initialize one-hot-matrix
+
+#     one_hot_mat = np.zeros((nrows_data, n_clusters_tf))
+
+#     # Populate one-hot-matrix
+
+
+#     for ix, gene in enumerate(denoised['gene name']):
+        
+#         gene_clus = tgs_[tgs_['TGs'] == gene]
+        
+#         if gene_clus.shape[0] > 0:
+            
+#             clusters = gene_clus.cluster.values
+#             clus_ix = [clus - 1 for clus in clusters]
+            
+#             one_hot_mat[ix, clus_ix] = 1
+            
+#         else: 
+#             pass
+
+#     # Make one-hot-matrix into a dataframe
+
+#     one_hot_df = pd.DataFrame(one_hot_mat, 
+#                     columns = ['cluster ' + str(i) for i in np.arange(1, n_clusters_tf + 1 )])
+
+
+#     # Get the n_samples of smallest cluster
+#     clus_samples = one_hot_mat.sum(axis = 0)
+
+#     min_clus_samples = min(clus_samples)
+
+#     # Separate denoised and annotated data 
+#     #annot = denoised.iloc[:, :3].values
+#     #denoised_data = denoised.iloc[:, 3:].values
+
+#     # Apply UMAP to denoised data 
+
+#     #denoised_reduced = umap.UMAP(n_components = int(min_clus_samples), 
+#     #                         random_state = seed).fit_transform(denoised_data)
+
+#     # Turn UMAP data into a dataframe
+#     #denoised_umap = pd.DataFrame(denoised_reduced,
+#     #    columns = ['UMAP ' + str(int(x)) for x in np.arange(1, min_clus_samples+ 1)]
+#     #)
+
+#     # Denoised UMAP data plus annotation and one hot matrix 
+#     denoised_hot = pd.concat([denoised, one_hot_df], axis = 1)
+
+#     # add a column corresponding to genes that are TGs 
+#     one_hot_sum = one_hot_mat.sum(axis = 1)# helper indicator array
+#     denoised_hot['TG'] = [1 if val > 0 else 0 for i, val in enumerate(one_hot_sum)]
+
+#     denoised_hot.to_csv('~/Downloads/denoised_umap_hot.csv', index = False)
+
+def annot_data_trn(
+    tf_tf_net_path=None,
+    trn_path=None,
+    denoised_data_path=None,
+    org="ecoli",
+    output_path= "~/Downloads/"):
+
+    """
+    Annotate the preprocessed dataset with network clusters as a one-hot-matrix. 
+    Performs the operation on E. coli by default. 
+
+    Params 
+    -------
+
+
+    Returns 
+    --------
+
+    """
+
+    # Load TF-TF net and TRN
+
+    if tf_tf_net_path is None and org is None:
+        os.system(
+            "wget http://regulondb.ccg.unam.mx/menu/download/datasets/files/network_tf_tf.txt"
+        )
+
+        tf_trn = pd.read_csv(
+            "network_tf_tf.txt",
+            delimiter="\t",
+            comment="#",
+            names=["TF", "TG", "regType", "ev", "confidence", "unnamed"],
+            usecols=np.arange(5),
+        )
+
+    else:
+        try: 
+            tf_trn = pd.read_csv(tf_tf_net_path)
+            
+        except: 
+            tf_trn = pd.read_csv(
+            tf_tf_net_path,
+            delimiter="\t",
+            comment="#",
+            names=["TF", "TG", "regType", "ev", "confidence", "unnamed"],
+            usecols=np.arange(5),
+        )
+
+    if trn_path is None:
+        os.system(
+            "wget http://regulondb.ccg.unam.mx/menu/download/datasets/files/network_tf_gene.txt"
+        )
+
+        trn = pd.read_csv(
+            "network_tf_gene.txt",
+            delimiter="\t",
+            comment="#",
+            names=["TF", "TG", "regType", "ev", "confidence", "unnamed"],
+            usecols=np.arange(5),
+        )
+
+    else:
+        try: 
+            trn = pd.read_csv(trn_path)
+        except:
+            trn = pd.read_csv(
+                trn_path,
+                delimiter="\t",
+                comment="#",
+                names=["TF", "TG", "regType", "ev", "confidence", "unnamed"],
+                usecols=np.arange(5),
+            )
+
+    # Lowercase gene names for both datasets
+    tf_trn.TF = tf_trn.TF.apply(lambda x: x.lower())
+    tf_trn.TG = tf_trn.TG.apply(lambda x: x.lower())
+
+    trn.TF = trn.TF.apply(lambda x: x.lower())
+    trn.TG = trn.TG.apply(lambda x: x.lower())
+
+    # Turn the TF TRN dataframe into a graph object
+    net = nx.from_pandas_edgelist(
+        df=tf_trn, source="TF", target="TG"
+    )
+
+    # Compute the LCC
+    net = max(nx.connected_component_subgraphs(net), key=len)
+
+    # Cluster TF net
+
+    communities = community.best_partition(net)
+
+    # Get number of clusters
+    n_clusters_tf = max(communities.values())
+
+    #  Embed cluster annotation in net
+    nx.set_node_attributes(net, values=communities, name="modularity")
+
+    # Get np.array of TF clusters
+    cluster_list = np.array(get_network_clusters(net, n_clusters_tf))
+
+    # Get cluster sizes
+
+    cluster_sizes = np.array([len(clus) for clus in cluster_list])
+
+    # Select only the clusters with more than 5 TFs
+
+    clus_list = cluster_list[cluster_sizes > 5]
+
+    # Get a DataFrame of the TGs in each cluster
+
+    tgs_ = pd.DataFrame()
+
+    for ix, clus in enumerate(clus_list):
+
+        clus_trn = get_gene_data(trn, "TF", clus)
+        clus_tgs = list(set(clus_trn["TG"].values))
+
+        tgs_df = pd.DataFrame({"TGs": clus_tgs})
+
+        tgs_df["cluster"] = ix + 1
+
+        tgs_ = pd.concat([tgs_, tgs_df])
+
+    # -----Start constructing the annotated dataset ------
+
+    if denoised_data_path is None:
+        try:
+            denoised = pd.read_csv("denoised_coli.csv")
+        except:
+            download_and_preprocess_data(org)
+
+    else:
+        try:
+            denoised = pd.read_csv(denoised_data_path + 'denoised_'+ org + '.csv') 
+        except:
+            'Could not load denoised dataset. Check file name input.'
+
+    # Get nrows of denoised data
+    nrows_data = denoised.shape[0]
+
+    # Initialize one-hot-matrix
+    one_hot_mat = np.zeros((nrows_data, n_clusters_tf))
+
+    # Populate one-hot-matrix
+    for ix, gene in enumerate(denoised["gene name"]):
+
+        gene_clus = tgs_[tgs_["TGs"] == gene]
+
+        if gene_clus.shape[0] > 0:
+
+            clusters = gene_clus.cluster.values
+            clus_ix = [clus - 1 for clus in clusters]
+
+            one_hot_mat[ix, clus_ix] = 1
+
+        else:
+            pass
+
+    # Make one-hot-matrix into a dataframe
+    one_hot_df = pd.DataFrame(
+        one_hot_mat,
+        columns=["cluster " + str(i) for i in np.arange(1, n_clusters_tf + 1)],
+    )
+
+    # Get the n_samples of smallest cluster
+    clus_samples = one_hot_mat.sum(axis=0)
+    min_clus_samples = min(clus_samples)
+
+    # Join the denoised dataset and one hot matrix
+    denoised_hot = pd.concat([denoised, one_hot_df], axis=1)
+
+    # add a column corresponding to genes that are TGs
+    one_hot_sum = one_hot_mat.sum(axis=1)  # helper indicator array
+    denoised_hot["TG"] = [1 if val > 0 else 0 for i, val in enumerate(one_hot_sum)]
+
+
+    if output_path is "~/Downloads/":
+        denoised_hot.to_csv("~/Downloads/denoised_hot_" + org + ".csv", index=False)
+
+    else: 
+        denoised_hot.to_csv( output_path + "denoised_hot_" + org + ".csv", index=False)
+            
+
+def train_keras_multilabel_nn(X_train,
+                              y_train,
+                              partial_x_train,
+                              partial_y_train,
+                              x_val= None, 
+                              y_val= None,
+                              n_units=64,
+                              epochs=20,
+                              n_deep_layers=1,
+                              batch_size=128): 
     
     '''
     Trains a Keras model. 
     
     Assumes there are a X_train, y_train, x_val, y_val datasets.
     
-    Returns history dataframe. 
+    Params
+    -------
+    n_units: number of neurons per deep layer. 
+    epochs:  number of epochs to train the net. 
+    n_deep_layers: number of layers in the deep neural net. 
+    batch_size : batch size to train the net with.
+    
+    Returns
+    --------
+    nn (Keras model): neural net model
+    history (pd.DataFrame): history of the training procedure, includes 
+                         training and validation accuracy and loss.
     
     '''
     nn = Sequential()
@@ -584,8 +814,9 @@ def train_keras_multilabel_nn(n_units=64, epochs=20, n_deep_layers=1, batch_size
     
     #extra deep layers
     for i in range(n_deep_layers):
-        nn.add(Dense(n_units, activation='relu'),
-               kernel_regularizer=l2(0.001))
+        nn.add(Dense(n_units, activation='relu',
+                     kernel_regularizer=regularizers.l2(0.001))
+               )
         nn.add(Dropout(0.25))
         
     #add final output layer
@@ -598,14 +829,22 @@ def train_keras_multilabel_nn(n_units=64, epochs=20, n_deep_layers=1, batch_size
     nn.summary()
     
     #fit and load history
-    history = nn.fit(partial_x_train, partial_y_train, epochs=epochs,
+    if x_val and y_val == None:
+        history = nn.fit(X_train, y_train, epochs=epochs,
+                    batch_size= batch_size,
+                    verbose = 0)
+        
+    else:
+        history = nn.fit(partial_x_train, partial_y_train, epochs=epochs,
                     batch_size= batch_size, validation_data=(x_val, y_val),
                     verbose = 0)
     
     history_df = pd.DataFrame(history.history)
     
     return nn, history_df
-
 # -
+
+
+
 
 

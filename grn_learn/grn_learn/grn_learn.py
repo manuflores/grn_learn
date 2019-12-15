@@ -420,178 +420,178 @@ def download_and_preprocess_data(org, data_dir = None, variance_ratio = 0.8,
     # Export dataset 
     denoised_df.to_csv(output_path + 'denoised_' + org + '.csv', index = False)
 
-def annot_data_trn(tf_tf_net_path = None,
-                   trn_path = None,
-                   denoised_data_path = None,
-                   org = 'ecoli',
-                   output_path = '~/Downloads/'):
+# def annot_data_trn(tf_tf_net_path = None,
+#                    trn_path = None,
+#                    denoised_data_path = None,
+#                    org = 'ecoli',
+#                    output_path = '~/Downloads/'):
 
-    # Load TF-TF net and TRN
+#     # Load TF-TF net and TRN
     
-    if tf_tf_net_path is None: 
-        os.system('wget http://regulondb.ccg.unam.mx/menu/download/datasets/files/network_tf_tf.txt')
+#     if tf_tf_net_path is None: 
+#         os.system('wget http://regulondb.ccg.unam.mx/menu/download/datasets/files/network_tf_tf.txt')
 
 
-        tf_trn = pd.read_csv('network_tf_tf.txt',
-                         delimiter= '\t',
-                         comment= '#', 
-                         names = ['TF', 'TG', 'regType', 'ev', 'confidence', 'unnamed'], 
-                         usecols = np.arange(5))
+#         tf_trn = pd.read_csv('network_tf_tf.txt',
+#                          delimiter= '\t',
+#                          comment= '#', 
+#                          names = ['TF', 'TG', 'regType', 'ev', 'confidence', 'unnamed'], 
+#                          usecols = np.arange(5))
 
-    else: 
-        tf_trn = pd.read_csv(tf_tf_net_path,
-                         delimiter= '\t',
-                         comment= '#', 
-                         names = ['TF', 'TG', 'regType', 'ev', 'confidence', 'unnamed'], 
-                         usecols = np.arange(5))
+#     else: 
+#         tf_trn = pd.read_csv(tf_tf_net_path,
+#                          delimiter= '\t',
+#                          comment= '#', 
+#                          names = ['TF', 'TG', 'regType', 'ev', 'confidence', 'unnamed'], 
+#                          usecols = np.arange(5))
 
-    if trn_path is None: 
-        # by default download the E. coli trn
-        os.system('wget http://regulondb.ccg.unam.mx/menu/download/datasets/files/network_tf_gene.txt')
+#     if trn_path is None: 
+#         # by default download the E. coli trn
+#         os.system('wget http://regulondb.ccg.unam.mx/menu/download/datasets/files/network_tf_gene.txt')
 
-        trn = pd.read_csv('network_tf_gene.txt',
-                         delimiter= '\t',
-                         comment= '#', 
-                         names = ['TF', 'TG', 'regType', 'ev', 'confidence', 'unnamed'], 
-                         usecols = np.arange(5))
+#         trn = pd.read_csv('network_tf_gene.txt',
+#                          delimiter= '\t',
+#                          comment= '#', 
+#                          names = ['TF', 'TG', 'regType', 'ev', 'confidence', 'unnamed'], 
+#                          usecols = np.arange(5))
 
-    else: 
-        try:
-            trn =  pd.read_csv(trn_path)
-        except:
-            trn = pd.read_csv(trn_path,
-                             delimiter= '\t',
-                             comment= '#', 
-                             names = ['TF', 'TG', 'regType', 'ev', 'confidence', 'unnamed'], 
-                             usecols = np.arange(5))
+#     else: 
+#         try:
+#             trn =  pd.read_csv(trn_path)
+#         except:
+#             trn = pd.read_csv(trn_path,
+#                              delimiter= '\t',
+#                              comment= '#', 
+#                              names = ['TF', 'TG', 'regType', 'ev', 'confidence', 'unnamed'], 
+#                              usecols = np.arange(5))
             
-            #print('TRN probably has a different column annotation.')
+#             #print('TRN probably has a different column annotation.')
 
-    # Lowercase gene names for both datasets
-    tf_trn.TF = tf_trn.TF.apply(lambda x: x.lower())
-    tf_trn.TG = tf_trn.TG.apply(lambda x: x.lower())
+#     # Lowercase gene names for both datasets
+#     tf_trn.TF = tf_trn.TF.apply(lambda x: x.lower())
+#     tf_trn.TG = tf_trn.TG.apply(lambda x: x.lower())
 
-    trn.TF = trn.TF.apply(lambda x: x.lower())
-    trn.TG = trn.TG.apply(lambda x: x.lower())
+#     trn.TF = trn.TF.apply(lambda x: x.lower())
+#     trn.TG = trn.TG.apply(lambda x: x.lower())
 
     
 
-    # Turn the TF TRN dataframe into a graph object
-    net = nx.from_pandas_edgelist(df= tf_trn, source= 'TF', target='TG')
+#     # Turn the TF TRN dataframe into a graph object
+#     net = nx.from_pandas_edgelist(df= tf_trn, source= 'TF', target='TG')
 
-    # Compute the LCC
-    net= max(nx.connected_component_subgraphs(net), key=len)
+#     # Compute the LCC
+#     net= max(nx.connected_component_subgraphs(net), key=len)
 
-    #Cluster TF net 
+#     #Cluster TF net 
 
-    communities = community.best_partition(net)
+#     communities = community.best_partition(net)
 
-    # Get number of clusters
-    n_clusters_tf = max(communities.values())
+#     # Get number of clusters
+#     n_clusters_tf = max(communities.values())
 
-    # Embed cluster annotation in net 
-    nx.set_node_attributes(net, values= communities, name='modularity')
+#     # Embed cluster annotation in net 
+#     nx.set_node_attributes(net, values= communities, name='modularity')
 
-    # Get np.array of TF clusters
-    cluster_list = np.array(get_network_clusters(net, n_clusters_tf))
+#     # Get np.array of TF clusters
+#     cluster_list = np.array(get_network_clusters(net, n_clusters_tf))
 
-    # Get cluster sizes 
+#     # Get cluster sizes 
 
-    cluster_sizes = np.array([len(clus) for clus in cluster_list])
+#     cluster_sizes = np.array([len(clus) for clus in cluster_list])
 
-    # Select only the clusters with more than 5 TFs
+#     # Select only the clusters with more than 5 TFs
 
-    clus_list = cluster_list[cluster_sizes > 5]
+#     clus_list = cluster_list[cluster_sizes > 5]
 
 
-    # Get a DataFrame of the TGs in each cluster
+#     # Get a DataFrame of the TGs in each cluster
 
-    tgs_ = pd.DataFrame()
+#     tgs_ = pd.DataFrame()
 
-    for ix, clus in enumerate(clus_list):
+#     for ix, clus in enumerate(clus_list):
         
-        clus_trn = get_gene_data(trn, 'TF', clus)
-        clus_tgs = list(set(clus_trn['TG'].values))
+#         clus_trn = get_gene_data(trn, 'TF', clus)
+#         clus_tgs = list(set(clus_trn['TG'].values))
         
-        tgs_df = pd.DataFrame({'TGs': clus_tgs})
+#         tgs_df = pd.DataFrame({'TGs': clus_tgs})
         
-        tgs_df['cluster'] = ix + 1
+#         tgs_df['cluster'] = ix + 1
         
-        tgs_ = pd.concat([tgs_, tgs_df])
+#         tgs_ = pd.concat([tgs_, tgs_df])
 
 
-    # -----Start constructing the annotated dataset ------
+#     # -----Start constructing the annotated dataset ------
 
-    if denoised_data_path is None: 
-        try:
-            denoised = pd.read_csv('denoised_coli.csv')
-        except: 
-            import download_and_preprocess_data as d
+#     if denoised_data_path is None: 
+#         try:
+#             denoised = pd.read_csv('denoised_coli.csv')
+#         except: 
+#             import download_and_preprocess_data as d
 
-            d.download_and_preprocess_data(org)
+#             d.download_and_preprocess_data(org)
 
-    else: 
-        denoised = pd.read_csv(denoised_data_path)
-
-
-    # Get nrows of denoised data
-    nrows_data = denoised.shape[0]
+#     else: 
+#         denoised = pd.read_csv(denoised_data_path)
 
 
-    # Initialize one-hot-matrix
-
-    one_hot_mat = np.zeros((nrows_data, n_clusters_tf))
-
-    # Populate one-hot-matrix
+#     # Get nrows of denoised data
+#     nrows_data = denoised.shape[0]
 
 
-    for ix, gene in enumerate(denoised['gene name']):
+#     # Initialize one-hot-matrix
+
+#     one_hot_mat = np.zeros((nrows_data, n_clusters_tf))
+
+#     # Populate one-hot-matrix
+
+
+#     for ix, gene in enumerate(denoised['gene name']):
         
-        gene_clus = tgs_[tgs_['TGs'] == gene]
+#         gene_clus = tgs_[tgs_['TGs'] == gene]
         
-        if gene_clus.shape[0] > 0:
+#         if gene_clus.shape[0] > 0:
             
-            clusters = gene_clus.cluster.values
-            clus_ix = [clus - 1 for clus in clusters]
+#             clusters = gene_clus.cluster.values
+#             clus_ix = [clus - 1 for clus in clusters]
             
-            one_hot_mat[ix, clus_ix] = 1
+#             one_hot_mat[ix, clus_ix] = 1
             
-        else: 
-            pass
+#         else: 
+#             pass
 
-    # Make one-hot-matrix into a dataframe
+#     # Make one-hot-matrix into a dataframe
 
-    one_hot_df = pd.DataFrame(one_hot_mat, 
-                    columns = ['cluster ' + str(i) for i in np.arange(1, n_clusters_tf + 1 )])
+#     one_hot_df = pd.DataFrame(one_hot_mat, 
+#                     columns = ['cluster ' + str(i) for i in np.arange(1, n_clusters_tf + 1 )])
 
 
-    # Get the n_samples of smallest cluster
-    clus_samples = one_hot_mat.sum(axis = 0)
+#     # Get the n_samples of smallest cluster
+#     clus_samples = one_hot_mat.sum(axis = 0)
 
-    min_clus_samples = min(clus_samples)
+#     min_clus_samples = min(clus_samples)
 
-    # Separate denoised and annotated data 
-    #annot = denoised.iloc[:, :3].values
-    #denoised_data = denoised.iloc[:, 3:].values
+#     # Separate denoised and annotated data 
+#     #annot = denoised.iloc[:, :3].values
+#     #denoised_data = denoised.iloc[:, 3:].values
 
-    # Apply UMAP to denoised data 
+#     # Apply UMAP to denoised data 
 
-    #denoised_reduced = umap.UMAP(n_components = int(min_clus_samples), 
-    #                         random_state = seed).fit_transform(denoised_data)
+#     #denoised_reduced = umap.UMAP(n_components = int(min_clus_samples), 
+#     #                         random_state = seed).fit_transform(denoised_data)
 
-    # Turn UMAP data into a dataframe
-    #denoised_umap = pd.DataFrame(denoised_reduced,
-    #    columns = ['UMAP ' + str(int(x)) for x in np.arange(1, min_clus_samples+ 1)]
-    #)
+#     # Turn UMAP data into a dataframe
+#     #denoised_umap = pd.DataFrame(denoised_reduced,
+#     #    columns = ['UMAP ' + str(int(x)) for x in np.arange(1, min_clus_samples+ 1)]
+#     #)
 
-    # Denoised UMAP data plus annotation and one hot matrix 
-    denoised_hot = pd.concat([denoised, one_hot_df], axis = 1)
+#     # Denoised UMAP data plus annotation and one hot matrix 
+#     denoised_hot = pd.concat([denoised, one_hot_df], axis = 1)
 
-    # add a column corresponding to genes that are TGs 
-    one_hot_sum = one_hot_mat.sum(axis = 1)# helper indicator array
-    denoised_hot['TG'] = [1 if val > 0 else 0 for i, val in enumerate(one_hot_sum)]
+#     # add a column corresponding to genes that are TGs 
+#     one_hot_sum = one_hot_mat.sum(axis = 1)# helper indicator array
+#     denoised_hot['TG'] = [1 if val > 0 else 0 for i, val in enumerate(one_hot_sum)]
 
-    denoised_hot.to_csv('~/Downloads/denoised_umap_hot.csv', index = False)
+#     denoised_hot.to_csv('~/Downloads/denoised_umap_hot.csv', index = False)
 
 def annot_data_trn(
     tf_tf_net_path=None,
