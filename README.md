@@ -1,8 +1,8 @@
-# PyData LA 2019 tutorial: GRN_learn
+# Gene regulatory network (GRN) Learn. 
 
 ### Learning gene regulatory networks in bacteria
 
-This repo contains all of the relevant information for the PyData LA tutorial on supervised learning of simple genetic networks. 
+This repo contains all of the relevant information for the paper : Supervised learning of genetic networks in bacteria. 
 
 
 
